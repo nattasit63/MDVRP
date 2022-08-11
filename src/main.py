@@ -1,11 +1,15 @@
+import re
+import time
 import Customer
 import Depot
 import Chromosome
 import random
 import copy
-from operator import itemgetter
+from operator import itemgetter  #use for sort
 import matplotlib.pyplot as plt
 
+file_name = '2.txt'
+print('File : ',file_name)
 BOUND = 2
 POPULATION_SIZE = 200
 GENERATION_SPAN = 250
@@ -13,50 +17,62 @@ NUM_ELITE = 4
 CROSSOVER_PROB = 0.6
 INTRA_D_MUTATION_PROB = 0.1
 
-COLORS = ["blue","red","green","purple","black","orange","yellow","pink","turquoise","silver","skyblue","aquamarine","gray","darkblue"]
+COLORS = ["blue","red","green","purple","orange","black","yellow","pink","turquoise","silver","skyblue","aquamarine","gray","darkblue","lime","seagreen","teal","cadetblue",
+          "steelblue","saddlebrown","peru","salmon","dimgray","lavender","navy","darkslateblue","mediumpurple","indigo","plum","darkmagenta","crimson","slategray"]
 
-f = open('../Data/Data Files/2.txt','r')
+
+path_with_file = '../Data/Data Files/' + file_name
+f = open(path_with_file,'r')
 data= f.readline().split()
-m = int(data[0])
-n = int(data[1])
-t = int(data[2])
+m = int(data[0])                                               # maximum number of vehicles availavle in each depot
+n = int(data[1])                                               # total number of customers
+t = int(data[2])                                               # number of depot(s)
+# print(t)
 
 depots = []
 for i in range(t):
     DQ = f.readline().split()
-    depots.append( (int(DQ[0]), int(DQ[1])) )
-
+    depots.append( (int(DQ[0]), int(DQ[1])) )                  # DQ[0] = maximum duration of a route   , DQ[1] = allowed maximum load of a vehicle
+    # print('Depot = ' , depots)
 customers = []
 for j in range(n):
     info = f.readline().split()
-    i = int(info[0])
-    x = int(info[1])
-    y = int(info[2])
-    q = int(info[4])
-    customers.append( Customer.Customer(i,x,y,q) )
-
+    # print('Customer Info = ',info)
+    i = int(info[0])                                            # customer id
+    x = int(info[1])                                            # x coordinate for this customer
+    y = int(info[2])                                            # y coordinate for this customer
+    q = int(info[4])                                            # demand for this customer
+    # print("Customer = " ,Customer.Customer(i,x,y,q))
+    customers.append( Customer.Customer(i,x,y,q) )              # print customers = [1,2,3,...,last customer]
+    
 for i in range(t):
+    # print(i)
     info = f.readline().split()
-    k = int(info[0])-n
-    x = int(info[1])
-    y = int(info[2])
+    # print('Info = ',info)
+    k = int(info[0])-n                                          # k = [1,2,3,..]
+    x = int(info[1])                                            # x coordinate for this depot
+    y = int(info[2])                                            # y coordinate for this depot
     D = depots[i][0]
     Q = depots[i][1]
-    depots[i]= Depot.Depot(k,x,y,D,Q,m)
+
+    # print('k = ',k)
+    depots[i]= Depot.Depot(k,x,y,D,Q,m)                         # print depots = [1,2,3,...,last depot]
+    # print('Depot = ' , depots)
 
 def initial_depot_clustering():
     for c in customers:
-        distances = [(d.distance(c,d),d) for d in depots]
-        distances.sort(key=itemgetter(0))
-        for dist in distances:
+        distances = [(d.distance(c,d),d) for d in depots]       # calculate distance between customer and depot  (From Depot.py)
+        distances.sort(key=itemgetter(0))                       # sorted distance of customer and depot 
+        for dist in distances:                                  # dist[0] = only lowest distance to depot , dist[1] = depot for lowest distance from customer
             if dist[1].get_load()+c.q <= dist[1].Q*m:
                 dist[1].customer_list.append(c)
-                break
+            break
+       
 
 def alt_init():
     for c in customers:
         random_depot = random.choice(depots)
-        random_depot.customer_list.append(c)
+        random_depot.customer_list.append(c)                                    #random_depot = [1,2,8,13,... random dept] both customers and amount
 
 def initial_population():
     population = []
@@ -65,8 +81,9 @@ def initial_population():
         for t in temp_depots:
             random.shuffle(t.customer_list)
         print("Creating chromosome " + str(i+1))
-        population.append(Chromosome.Chromosome(temp_depots))
+        population.append(Chromosome.Chromosome(temp_depots))                   # create random customer list from alt_init()  , size of random customer list = POPULATION_SIZE
     return population
+
 
 def plot(chromosome):
     for d in chromosome.depots:
@@ -86,55 +103,40 @@ def plot(chromosome):
             [d.y for d in chromosome.depots],"ks",markerfacecolor='none',markersize='8',mew='1')
     plt.show()
 
-def print_sol(chromosome):
+# def plot(chromosome):
+#     num_depot = -1       # To be initial begin in for loop at 0                                      
+#     for d in chromosome.depots:     # a color for a depot
+#         num_depot+=1
+#         print('Chromosome Depot = ',d)
+#         for vehicle in range(len(d.vehicles)):
+#             print('Vehicle = ' , vehicle+1)
+#             route_color = COLORS[num_depot]
+#             if len(d.vehicles[vehicle]) > 1:
+#                 plt.plot((d.x,d.vehicles[vehicle][0].x),(d.y,d.vehicles[vehicle][0].y),color=route_color, alpha=0.5)
+#                 for i in range(1,len(d.vehicles[vehicle])):
+#                     plt.plot((d.vehicles[vehicle][i-1].x,d.vehicles[vehicle][i].x),(d.vehicles[vehicle][i-1].y,d.vehicles[vehicle][i].y),color=route_color, alpha=0.5)
+#                 plt.plot((d.x,d.vehicles[vehicle][-1].x),(d.y,d.vehicles[vehicle][-1].y),color=route_color, alpha=0.5)
+#             elif len(d.vehicles[vehicle]) == 1:
+#                 plt.plot((d.x,d.vehicles[vehicle][0].x),(d.y,d.vehicles[vehicle][0].y),color=route_color, alpha=0.5)
+#     plt.plot([c.x for c in chromosome.get_repr()], 
+#             [c.y for c in chromosome.get_repr()],"k+",mew='1')
+#     plt.plot([d.x for d in chromosome.depots], 
+#             [d.y for d in chromosome.depots],"ks",markerfacecolor='none',markersize='8',mew='1')
+#     plt.show()
+
+def print_sol(chromosome):                                                                                         
     total_customers = 0
     for d in chromosome.depots:
-        for vehicle in range(len(d.vehicles)):
-            total_customers += len(d.vehicles[vehicle])
-            print(str(d.i)+"\t"+str(vehicle+1)+"\t"+str(round(d.route_duration(vehicle),2))+"\t"+ \
-                str(d.vehicle_load(vehicle))+"\t"+"0 "+str(d.vehicles[vehicle]).strip("[,]").replace(",","")+" 0")
+        temp=''
 
-def run():
-    alt_init()
-    population = initial_population()
-    for generation in range(GENERATION_SPAN):
-        fitness = copy.deepcopy([(chrom.fitness(),chrom) for chrom in population])
-        fitness.sort(key=itemgetter(0))
-        avg_fitness = sum(f[0] for f in fitness)/len(population)
-        print("Generation: "+str((generation+1))+" Average fitness: " + str(avg_fitness) + " Best fitness: " + str(fitness[0][0]))
-        new_pop = []
-        while len(new_pop) < len(population):
-            p1 = selection(population)
-            p2 = selection(population)
-            while p1 == p2:
-                p2 = selection(population)
-            if random.random() <= CROSSOVER_PROB:
-                c1,c2 = crossover(p1,p2)
-            else:
-                c1,c2 = p1,p2
-            if random.random() <= INTRA_D_MUTATION_PROB:
-                c1 = intra_d_mutate(c1)
-            if random.random() <= INTRA_D_MUTATION_PROB:
-                c2 = intra_d_mutate(c2)
-            new_pop.append(c1)
-            new_pop.append(c2)
-        # Elitism
-        num_elites = int(POPULATION_SIZE/100)
-        if num_elites<1:
-            num_elites=1
-        for i in range(num_elites):
-            new_pop.pop(random.randrange(len(new_pop)))
-        for i in range(num_elites):
-            new_pop.append(fitness[i][1])
-        population = new_pop
-    fitness = [(chrom.fitness(),chrom) for chrom in population]
-    fitness.sort(key=itemgetter(0))
-    best_candidate = fitness[0][1]
-    print()
-    print()
-    print(best_candidate.total_route_duration())
-    print_sol(best_candidate)
-    plot(best_candidate)
+        for vehicle in range(len(d.vehicles)):
+            sol = []
+            total_customers += len(d.vehicles[vehicle])
+            for vp in range(len(d.vehicles[vehicle])):
+                if d.vehicles[vehicle][vp]!=temp:
+                    sol.append(d.vehicles[vehicle][vp])
+                temp = d.vehicles[vehicle][vp]      
+            print(str(d.i)+"\t"+str(vehicle+1)+"\t"+str(round(d.route_duration(vehicle),2))+"\t"+ str(d.vehicle_load(vehicle))+"\t"+"0 "+str(sol).strip("[,]").replace(",","")+" 0")
 
 def selection(population):
     first,second = random.sample(population,2)
@@ -239,5 +241,59 @@ def intra_d_mutate(child): #Reversal mutation
     child.depots[depot_num].customer_list[left:right] = sublist
     child.depots[depot_num].update_routes()
     return child
+
+
+
+def run():
+    initial_depot_clustering()
+    start_time = time.time()
+ 
+    # alt_init() 
+    
+    population = initial_population()
+    
+    for generation in range(GENERATION_SPAN):
+        fitness = copy.deepcopy([(chrom.fitness(),chrom) for chrom in population])
+        fitness.sort(key=itemgetter(0))
+        avg_fitness = sum(f[0] for f in fitness)/len(population)
+        print("Generation: "+str((generation+1))+" Average fitness: " + str(avg_fitness) + " Best fitness: " + str(fitness[0][0]))
+        new_pop = []
+        while len(new_pop) < len(population):
+            p1 = selection(population)
+            p2 = selection(population)
+            while p1 == p2:
+                p2 = selection(population)
+            if random.random() <= CROSSOVER_PROB:
+                c1,c2 = crossover(p1,p2)
+            else:
+                c1,c2 = p1,p2
+            if random.random() <= INTRA_D_MUTATION_PROB:
+                c1 = intra_d_mutate(c1)
+            if random.random() <= INTRA_D_MUTATION_PROB:
+                c2 = intra_d_mutate(c2)
+            new_pop.append(c1)
+            new_pop.append(c2)
+        # Elitism
+        num_elites = int(POPULATION_SIZE/100)
+        if num_elites<1:
+            num_elites=1
+        for i in range(num_elites):
+            new_pop.pop(random.randrange(len(new_pop)))
+        for i in range(num_elites):
+            new_pop.append(fitness[i][1])
+        population = new_pop
+    fitness = [(chrom.fitness(),chrom) for chrom in population]
+    fitness.sort(key=itemgetter(0))
+    best_candidate = fitness[0][1]
+    print()
+    print()
+    print(best_candidate.total_route_duration())
+    
+    print_sol(best_candidate)
+    print('code running time = ',time.time()-start_time , ' second')
+    plot(best_candidate)
+    
+
+
 
 run()
